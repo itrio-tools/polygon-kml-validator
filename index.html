@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargar Archivo KML</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            margin: 50px auto;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        form div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            display: none; /* Oculto por defecto */
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cargar Archivo KML</h1>
+        <form id="kmlUploadForm">
+            <div>
+                <label for="kmlFile">Selecciona tu archivo KML:</label>
+                <input type="file" id="kmlFile" name="kmlFile" accept=".kml,application/vnd.google-earth.kml+xml">
+            </div>
+            <button type="submit">Cargar y Validar KML</button>
+        </form>
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        // Función de validación de KML (la misma que te proporcioné antes)
+        function verificarKML(kmlString) {
+            const parser = new DOMParser();
+            const kmlDoc = parser.parseFromString(kmlString, "text/xml");
+
+            if (kmlDoc.getElementsByTagName("parsererror").length > 0) {
+                console.error("Error al parsear el KML. Asegúrate de que sea XML válido.");
+                return { isValid: false, message: "Error: El archivo KML no es un XML válido." };
+            }
+
+            const polygons = kmlDoc.getElementsByTagName("Polygon");
+
+            if (polygons.length !== 1) {
+                return { isValid: false, message: `Error: Se encontraron ${polygons.length} polígonos. Se espera solo uno.` };
+            }
+
+            const polygon = polygons[0];
+            const outerBoundaryIs = polygon.getElementsByTagName("outerBoundaryIs");
+
+            if (outerBoundaryIs.length === 0) {
+                return { isValid: false, message: "Error: El polígono no tiene un 'outerBoundaryIs' definido." };
+            }
+
+            const coordinatesTag = outerBoundaryIs[0].getElementsByTagName("coordinates")[0];
+
+            if (!coordinatesTag) {
+                return { isValid: false, message: "Error: El 'outerBoundaryIs' no contiene etiquetas de coordenadas." };
+            }
+
+            const coordinatesString = coordinatesTag.textContent.trim();
+            const coordinatePairs = coordinatesString.split(/\s+/).filter(c => c.length > 0);
+
+            if (coordinatePairs.length < 4) {
+                return { isValid: false, message: "Error: No hay suficientes coordenadas para formar un polígono válido (mínimo 4 puntos, incluido el de cierre)." };
+            }
+
+            const firstCoord = coordinatePairs[0];
+            const lastCoord = coordinatePairs[coordinatePairs.length - 1];
+
+            if (firstCoord !== lastCoord) {
+                return { isValid: false, message: "Error: El polígono no está cerrado. El primer y último punto no coinciden." };
+            }
+
+            return { isValid: true, message: "¡Éxito! El archivo KML contiene exactamente un polígono cerrado." };
+        }
+
+        document.getElementById('kmlUploadForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita el envío del formulario por defecto
+
+            const fileInput = document.getElementById('kmlFile');
+            const messageDiv = document.getElementById('message');
+            messageDiv.style.display = 'none'; // Oculta mensajes anteriores
+            messageDiv.className = 'message'; // Limpia clases de estado
+
+            if (fileInput.files.length === 0) {
+                messageDiv.textContent = 'Por favor, selecciona un archivo.';
+                messageDiv.classList.add('error');
+                messageDiv.style.display = 'block';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const fileName = file.name;
+            const fileExtension = fileName.split('.').pop().toLowerCase();
+
+            // Validación del tipo de archivo (nombre y MIME type)
+            if (fileExtension !== 'kml' && file.type !== 'application/vnd.google-earth.kml+xml') {
+                messageDiv.textContent = 'Error: Solo se permiten archivos KML (.kml).';
+                messageDiv.classList.add('error');
+                messageDiv.style.display = 'block';
+                return;
+            }
+
+            // Si es un archivo KML, procede a leerlo y validarlo con la función verificarKML
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const kmlContent = e.target.result;
+                const validationResult = verificarKML(kmlContent);
+
+                if (validationResult.isValid) {
+                    messageDiv.textContent = validationResult.message;
+                    messageDiv.classList.add('success');
+                } else {
+                    messageDiv.textContent = validationResult.message;
+                    messageDiv.classList.add('error');
+                }
+                messageDiv.style.display = 'block';
+            };
+
+            reader.onerror = function() {
+                messageDiv.textContent = 'Error al leer el archivo. Asegúrate de que sea un archivo de texto válido.';
+                messageDiv.classList.add('error');
+                messageDiv.style.display = 'block';
+            };
+
+            reader.readAsText(file); // Lee el contenido del archivo como texto
+        });
+    </script>
+</body>
+</html>
