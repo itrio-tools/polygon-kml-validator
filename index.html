@@ -132,13 +132,28 @@
             return { isValid: true, message: "¡Éxito! El archivo KML contiene exactamente un polígono cerrado." };
         }
 
-        document.getElementById('kmlUploadForm').addEventListener('submit', function(event) {
+        const fileInput = document.getElementById('kmlFile');
+        const messageDiv = document.getElementById('message');
+        const kmlUploadForm = document.getElementById('kmlUploadForm');
+
+        // Función para limpiar y ocultar el mensaje
+        function clearAndHideMessage() {
+            messageDiv.textContent = '';
+            messageDiv.className = 'message'; // Restablece a la clase base sin éxito/error
+            messageDiv.style.display = 'none';
+        }
+
+        // Listener para el evento 'change' del input de archivo
+        // Esto limpiará cualquier mensaje existente cuando se seleccione un nuevo archivo (o se deseleccione)
+        fileInput.addEventListener('change', function() {
+            clearAndHideMessage();
+        });
+
+        // Listener para el evento 'submit' del formulario
+        kmlUploadForm.addEventListener('submit', function(event) {
             event.preventDefault(); // Evita el envío del formulario por defecto
 
-            const fileInput = document.getElementById('kmlFile');
-            const messageDiv = document.getElementById('message');
-            messageDiv.style.display = 'none'; // Oculta mensajes anteriores
-            messageDiv.className = 'message'; // Limpia clases de estado
+            clearAndHideMessage(); // Asegura que el mensaje esté oculto al inicio de la validación
 
             if (fileInput.files.length === 0) {
                 messageDiv.textContent = 'Por favor, selecciona un archivo.';
@@ -159,7 +174,6 @@
                 return;
             }
 
-            // Si es un archivo KML, procede a leerlo y validarlo con la función verificarKML
             const reader = new FileReader();
             reader.onload = function(e) {
                 const kmlContent = e.target.result;
@@ -181,7 +195,7 @@
                 messageDiv.style.display = 'block';
             };
 
-            reader.readAsText(file); // Lee el contenido del archivo como texto
+            reader.readAsText(file);
         });
     </script>
 </body>
